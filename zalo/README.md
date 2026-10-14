@@ -5,13 +5,11 @@ Hermes gateway. Telegram-Bot-API-shaped: `getMe`, `sendMessage`, `sendPhoto`,
 `sendChatAction`, `getUpdates`, `setWebhook`.
 
 This is the **bot** integration (Zalo Official Account / Bot), not personal
-Zalo. Personal Zalo would need a `zca-js` Node bridge (separate plugin).
+Zalo. For a personal account see `../zalouser/`.
 
 ## Setup
 
-1. Get the bot token (`<botId>:<secret>`) from https://bot.zaloplatforms.com
-   (or reuse the one from the old OpenClaw config:
-   `~/.openclaw/openclaw.json` → `"zalo"` → `"botToken"`).
+1. Get the bot token (`<botId>:<secret>`) from https://bot.zaloplatforms.com.
 
 2. Add it to `~/.hermes/.env`:
 
@@ -26,7 +24,7 @@ Zalo. Personal Zalo would need a `zca-js` Node bridge (separate plugin).
 3. Enable + restart:
 
    ```
-   hermes plugins enable zalo      # already done
+   hermes plugins enable zalo
    hermes gateway restart
    ```
 
