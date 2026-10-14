@@ -44,3 +44,19 @@ optional_env:
     description: "Override the node binary used for the bridge"
     prompt: "Node binary path"
     password: false
+  - name: ZALOUSER_GROUP_FOLLOWUP_MINUTES
+    description: "After an allowlisted user @mentions the account in a group, answer their next messages there without a mention for N minutes (default 30, 0 = off)"
+    prompt: "Follow-up window in minutes"
+    password: false
+  - name: ZALOUSER_GROUP_LOG
+    description: "Passively log every message (any member, no mention needed) and attachment of allowed groups. Stores other members' messages locally. Default false"
+    prompt: "Enable passive group log? (true/false)"
+    password: false
+  - name: ZALOUSER_GROUP_LOG_DIR
+    description: "Directory for the group log (default $HERMES_HOME/zalouser/groups)"
+    prompt: "Group log directory"
+    password: false
+  - name: ZALOUSER_GROUP_LOG_RETENTION_DAYS
+    description: "Delete group logs and attachments older than N days (default 30)"
+    prompt: "Retention days"
+    password: false

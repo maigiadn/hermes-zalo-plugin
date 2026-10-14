@@ -225,7 +225,15 @@ async function cmdServe() {
         ? { title: c.title, description: c.description, href: c.href, thumb: c.thumb, params: c.params }
         : null,
       mentions: (d.mentions || []).map((x) => ({ uid: String(x.uid), pos: x.pos, len: x.len })),
-      quote: d.quote ? { ownerId: String(d.quote.ownerId), msg: d.quote.msg || "" } : null,
+      quote: d.quote
+        ? {
+            ownerId: String(d.quote.ownerId),
+            msg: d.quote.msg || "",
+            globalMsgId: String(d.quote.globalMsgId || ""),
+            cliMsgId: String(d.quote.cliMsgId || ""),
+            fromD: d.quote.fromD || "",
+          }
+        : null,
     });
   });
 

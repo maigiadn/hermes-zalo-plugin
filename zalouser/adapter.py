@@ -46,6 +46,7 @@ import socket
 import time
 import urllib.parse
 import urllib.request
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -181,6 +182,13 @@ class ZaloUserAdapter(BasePlatformAdapter):
         except ValueError:
             self._group_log_days = 30
         self._last_prune: float = 0.0
+        # Follow-up window: after an allowlisted user @mentions (or replies to) the account in a
+        # group, their next messages there are answered without a mention for N minutes (0 = off).
+        try:
+            self._followup_sec: int = max(0, int(os.getenv("ZALOUSER_GROUP_FOLLOWUP_MINUTES", "30") or 30)) * 60
+        except ValueError:
+            self._followup_sec = 1800
+        self._followup_until: Dict[Tuple[str, str], float] = {}
 
         self._proc: Optional[asyncio.subprocess.Process] = None
         self._reader_task: Optional[asyncio.Task] = None
@@ -193,6 +201,9 @@ class ZaloUserAdapter(BasePlatformAdapter):
         self._self_name = ""
         self._group_names: Dict[str, str] = {}
         self._unknown_logged: Dict[str, float] = {}
+        # Recent group messages by msgId/cliMsgId, so a quote (which Zalo only gives as a short
+        # text + ids) can be resolved to the original sender, full text and saved attachment.
+        self._msg_cache: "OrderedDict[str, dict]" = OrderedDict()
 
     # ------------------------------------------------------------------
     # Access policy
@@ -687,6 +698,57 @@ class ZaloUserAdapter(BasePlatformAdapter):
         except Exception as e:
             logger.warning("[zalouser] group log write failed: %s", e)
 
+    def _open_followup(self, group_id: str, user_id: str) -> None:
+        """An allowlisted user addressed the account: answer their next group messages for a while."""
+        if self._followup_sec and self._is_dm_allowed(user_id):
+            self._followup_until[(group_id, user_id)] = time.time() + self._followup_sec
+
+    def _in_followup(self, group_id: str, user_id: str, ev: dict) -> bool:
+        """True when this unmentioned group message continues an open window. Messages clearly
+        aimed at someone else (they @mention or quote another person) and stickers don't count."""
+        key = (group_id, user_id)
+        until = self._followup_until.get(key)
+        if until is None:
+            return False
+        if time.time() > until or not self._is_dm_allowed(user_id):
+            self._followup_until.pop(key, None)
+            return False
+        if ev.get("mentions"):
+            return False
+        quote_owner = str((ev.get("quote") or {}).get("ownerId") or "")
+        if quote_owner and quote_owner != self._self_id:
+            return False
+        return str(ev.get("msgType") or "") != "chat.sticker"
+
+    def _remember_message(self, ev: dict, user_id: str, user_name: str, text: str, saved: Optional[Path]) -> None:
+        entry = {"uid": user_id, "name": user_name, "text": text, "saved": saved}
+        for key in (ev.get("msgId"), ev.get("cliMsgId")):
+            if key:
+                self._msg_cache[str(key)] = entry
+        while len(self._msg_cache) > 1000:
+            self._msg_cache.popitem(last=False)
+
+    def _resolve_quote(self, ev: dict) -> Tuple[Optional[str], Optional[str], bool, Optional[str]]:
+        """Quoted message -> (reply_to_message_id, reply_to_text, is_own, author_name).
+
+        Zalo only sends a short text and ids for a quote; when the original is still in the
+        in-memory cache the full text, real sender and saved attachment path are used instead."""
+        quote = ev.get("quote") or {}
+        if not quote:
+            return None, None, False, None
+        qid = str(quote.get("globalMsgId") or quote.get("cliMsgId") or "")
+        cached = self._msg_cache.get(str(quote.get("globalMsgId") or "")) or self._msg_cache.get(
+            str(quote.get("cliMsgId") or ""))
+        is_own = bool(self._self_id) and str(quote.get("ownerId") or "") == self._self_id
+        name = (cached or {}).get("name") or str(quote.get("fromD") or "") or None
+        body = (cached or {}).get("text") or str(quote.get("msg") or "")
+        if cached and cached.get("saved"):
+            body = f"{body} [đính kèm đã lưu tại {cached['saved']}]".strip()
+        if not body:
+            return None, None, is_own, name
+        who = name or ("tài khoản này" if is_own else "một thành viên")
+        return qid or "quote", f"{who}: {body}", is_own, name
+
     def _strip_leading_self_mention(self, text: str, mentions: Any) -> str:
         """"@Bot /new" -> "/new": drop a leading self-mention when a slash command follows,
         so commands typed in a group (where the account must be @mentioned) are recognised."""
@@ -712,6 +774,7 @@ class ZaloUserAdapter(BasePlatformAdapter):
             thread_id = str(ev.get("threadId") or "")
             is_group = ev.get("threadType") == "group"
 
+            followup = False  # forwarded only because of an open follow-up window (no mention)
             if is_group:
                 if thread_id not in self._allowed_groups:
                     self._log_unknown("group", thread_id, user_name)
@@ -721,6 +784,11 @@ class ZaloUserAdapter(BasePlatformAdapter):
                     mentioned = any(m.get("uid") == self._self_id for m in ev.get("mentions") or [])
                     replied = (ev.get("quote") or {}).get("ownerId") == self._self_id
                     triggered = mentioned or replied
+                    if triggered:
+                        self._open_followup(thread_id, user_id)
+                    elif self._in_followup(thread_id, user_id, ev):
+                        triggered = followup = True
+                        logger.info("[zalouser] follow-up without mention from %s in g:%s", user_id, thread_id)
                 if not triggered and not self._group_log:
                     return
             elif not self._is_dm_allowed(user_id):
@@ -741,6 +809,7 @@ class ZaloUserAdapter(BasePlatformAdapter):
                 if logged or saved:
                     await self._group_name(thread_id)
                     self._append_group_log(ev, thread_id, user_id, user_name, logged, saved, triggered)
+                    self._remember_message(ev, user_id, user_name, logged, saved)
                 if not triggered:
                     return
 
@@ -793,6 +862,7 @@ class ZaloUserAdapter(BasePlatformAdapter):
                 user_name=user_name,
                 message_id=message_id,
             )
+            reply_id, reply_text, reply_own, reply_author = self._resolve_quote(ev)
             await self.handle_message(MessageEvent(
                 text=text,
                 message_type=kind,
@@ -803,6 +873,13 @@ class ZaloUserAdapter(BasePlatformAdapter):
                 message_id=message_id,
                 media_urls=media_urls,
                 media_types=media_types,
+                reply_to_message_id=reply_id,
+                reply_to_text=reply_text,
+                reply_to_is_own_message=reply_own,
+                reply_to_author_name=reply_author,
+                # Not addressed by name: lets the agent answer a bare [SILENT] when the message
+                # was meant for someone else in the group.
+                reply_expected=False if followup else None,
             ))
         except Exception as e:
             logger.error("[zalouser] failed to process message: %s", e, exc_info=True)
