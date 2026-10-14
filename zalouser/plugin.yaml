@@ -1,0 +1,46 @@
+name: zalouser
+label: Zalo (personal)
+kind: platform
+version: 0.1.0
+description: >
+  Personal Zalo account gateway adapter for Hermes Agent, via the unofficial
+  zca-js (Zalo Web) library running in a small Node bridge. One-off QR login
+  (`node bridge/bridge.mjs login`) stores the session under
+  $HERMES_HOME/zalouser/. DMs are answered only for allowlisted users;
+  groups only when allowlisted and the account is @mentioned. Unofficial
+  API — Zalo may lock automated accounts; use a secondary account.
+author: maigiadn
+requires_env: []
+optional_env:
+  - name: ZALOUSER_ALLOWED_USERS
+    description: "Comma-separated Zalo uids whose DMs Hermes answers (others are silently ignored; their uid is logged)"
+    prompt: "Allowed user uids (comma-separated)"
+    password: false
+  - name: ZALOUSER_ALLOW_ALL_USERS
+    description: "Answer DMs from everyone (NOT recommended on a personal account)"
+    prompt: "Allow all users? (true/false)"
+    password: false
+  - name: ZALOUSER_ALLOWED_GROUPS
+    description: "Comma-separated Zalo group ids Hermes may answer in (default: no groups)"
+    prompt: "Allowed group ids (comma-separated)"
+    password: false
+  - name: ZALOUSER_GROUP_REQUIRE_MENTION
+    description: "In allowed groups, only answer when the account is @mentioned or replied to (default true)"
+    prompt: "Require mention in groups? (true/false)"
+    password: false
+  - name: ZALOUSER_HOME_CHANNEL
+    description: "Default chat id for cron / notification delivery (a uid, or g:<groupId>)"
+    prompt: "Home channel id (or empty)"
+    password: false
+  - name: ZALOUSER_DISABLED
+    description: "Set true to keep the platform off even when credentials exist"
+    prompt: "Disable? (true/false)"
+    password: false
+  - name: ZALOUSER_CREDENTIALS
+    description: "Override the credentials file path (default $HERMES_HOME/zalouser/credentials.json)"
+    prompt: "Credentials path"
+    password: false
+  - name: ZALOUSER_NODE_BIN
+    description: "Override the node binary used for the bridge"
+    prompt: "Node binary path"
+    password: false

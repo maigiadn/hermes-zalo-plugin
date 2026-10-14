@@ -1,0 +1,67 @@
+name: zalo
+label: Zalo
+kind: platform
+version: 0.1.0
+description: >
+  Zalo Bot API gateway adapter for Hermes Agent. Connects a Zalo bot
+  (created at https://bot.zaloplatforms.com) to the Hermes agent, relaying
+  text and photo messages between Zalo private chats / groups and Hermes.
+  Uses long-polling by default (no public URL needed); optionally switches
+  to webhook mode when ZALO_WEBHOOK_URL is set. Telegram-Bot-API-shaped
+  surface: sendMessage, sendPhoto, sendChatAction, getUpdates, setWebhook.
+author: maigiadn
+requires_env:
+  - name: ZALO_BOT_TOKEN
+    description: "Zalo bot token in <botId>:<secret> form (https://bot.zaloplatforms.com > your bot > API token)"
+    prompt: "Zalo bot token"
+    url: "https://bot.zaloplatforms.com/"
+    password: true
+optional_env:
+  - name: ZALO_ALLOWED_USERS
+    description: "Comma-separated Zalo user IDs allowed to DM the bot (numeric)"
+    prompt: "Allowed user IDs (comma-separated)"
+    password: false
+  - name: ZALO_ALLOW_ALL_USERS
+    description: "Allow any Zalo user to talk to the bot (dev only — disables the allowlist)"
+    prompt: "Allow all users? (true/false)"
+    password: false
+  - name: ZALO_ALLOWED_GROUPS
+    description: "Comma-separated Zalo group IDs the bot will respond in"
+    prompt: "Allowed group IDs (comma-separated)"
+    password: false
+  - name: ZALO_HOME_CHANNEL
+    description: "Default chat ID for cron / notification delivery"
+    prompt: "Home channel ID (or empty)"
+    password: false
+  - name: ZALO_WEBHOOK_URL
+    description: "Public HTTPS URL for webhook mode (e.g. https://example.com/webhooks/zalo). When unset, the adapter uses long-polling."
+    prompt: "Public webhook URL (or empty for polling)"
+    password: false
+  - name: ZALO_WEBHOOK_HOST
+    description: "Webhook bind host (default 127.0.0.1) — only used in webhook mode"
+    prompt: "Webhook bind host"
+    password: false
+  - name: ZALO_WEBHOOK_PORT
+    description: "Webhook listen port (default 8087) — only used in webhook mode"
+    prompt: "Webhook port"
+    password: false
+  - name: ZALO_WEBHOOK_SECRET
+    description: "Secret token echoed by Zalo in the X-Bot-Api-Secret-Token header (webhook mode). Auto-generated if empty."
+    prompt: "Webhook secret (or empty to auto-generate)"
+    password: true
+  - name: ZALO_API_BASE
+    description: "Override the Zalo Bot API base URL (default https://bot-api.zaloplatforms.com)"
+    prompt: "API base URL"
+    password: false
+  - name: ZALO_PUBLIC_MEDIA_URL
+    description: "Public HTTPS base that reaches ZALO_MEDIA_HOST:ZALO_MEDIA_PORT (e.g. via cloudflared). Required to send LOCAL image files — Zalo sendPhoto is URL-only. Without it, local-file sends fall back to a notice; public HTTPS image URLs still work."
+    prompt: "Public media base URL (or empty)"
+    password: false
+  - name: ZALO_MEDIA_HOST
+    description: "Bind host for the outbound media server (default 127.0.0.1)"
+    prompt: "Media server host"
+    password: false
+  - name: ZALO_MEDIA_PORT
+    description: "Port for the outbound media server (default 8088)"
+    prompt: "Media server port"
+    password: false

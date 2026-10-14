@@ -1,0 +1,14 @@
+{
+  "name": "hermes-zalouser-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Node bridge between Hermes (Python) and personal Zalo via zca-js",
+  "main": "bridge.mjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "zca-js": "^2.2.0"
+  }
+}
